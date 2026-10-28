@@ -1,0 +1,103 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Expected Lifespan v2 - intuitive prototype</title>
+<style>
+:root{--bg:#000028;--card:#23233a;--tx:#fff;--mu:#9a9ab0;--ac:#00ffb9;--off:#4a4a63;--warn:#ff9a3c;--bad:#ff5d5d;--ok:#00ffb9}
+.light{--bg:#f2f3f5;--card:#fff;--tx:#14141f;--mu:#5a5a6e;--ac:#007a5a;--off:#d5d6de;--warn:#c25a00;--bad:#c4262e;--ok:#007a5a}
+body{margin:0;padding:24px;background:var(--bg);color:var(--tx);font:14px system-ui}
+h2{font-size:13px;color:var(--mu);margin:28px 0 8px;text-transform:uppercase;letter-spacing:.05em}
+.card{background:var(--card);border-radius:8px;padding:16px;max-width:600px}
+.lbl{color:var(--mu)} .big{font-size:20px;font-weight:600}
+.chip{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;border:1px solid currentColor}
+.blocks{display:flex;flex-wrap:wrap;gap:3px;margin:10px 0}
+.b{width:18px;height:18px;border-radius:3px;background:var(--off)}
+.b.on{background:var(--ac)} .b.half{background:linear-gradient(90deg,var(--ac) 50%,var(--off) 50%)}
+.b.over{background:var(--warn)}
+.row{display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+.ring{width:96px;height:96px;border-radius:50%;display:grid;place-items:center}
+.ring>div{width:72px;height:72px;border-radius:50%;background:var(--card);display:grid;place-items:center;text-align:center;font-size:12px}
+.ctl{display:flex;gap:16px;align-items:center;flex-wrap:wrap;margin:12px 0}
+input,button{background:var(--card);color:var(--tx);border:1px solid var(--off);border-radius:4px;padding:4px 8px}
+input[type=number]{width:70px} input[type=range]{width:240px;padding:0;accent-color:var(--ac)}
+.note{color:var(--mu);font-size:12px;margin-top:6px}
+.saved{color:var(--ok);font-size:12px;opacity:0;transition:opacity .2s} .saved.show{opacity:1}
+.zone{max-width:640px;border:2px solid var(--ac);border-radius:12px;padding:16px;margin-bottom:28px}
+.zone.ro{border:2px dashed var(--off)}
+.zone>h1{margin:-28px 0 12px;font-size:13px;display:inline-block;padding:2px 12px;border-radius:12px;background:var(--ac);color:var(--bg);letter-spacing:.05em;text-transform:uppercase}
+.zone.ro>h1{background:var(--off);color:var(--tx)}
+.zone>p{margin:0 0 12px;color:var(--mu);font-size:12px}
+</style>
+
+<div class="zone">
+<h1>1 - Controls: set values here</h1>
+<p>Change anything in this box. The views in box 2 update instantly.</p>
+<button onclick="document.body.classList.toggle('light')">Toggle light / dark</button>
+
+<h2>Edit mode - slider + input, synced, instant feedback</h2>
+<div class="card">
+  <div class="lbl">Expected Lifespan</div>
+  <div class="ctl">
+    <input id="rng" type="range" min="1" max="100" step="1" value="15">
+    <input id="life" type="number" min="1" max="100" step="1" value="15"> <span class="lbl">years</span>
+    <span id="saved" class="saved">&#10003; Value accepted</span>
+  </div>
+  <div id="sentence" class="note"></div>
+</div>
+
+<div class="ctl">
+  <label>Installation Date <input id="inst" type="date" value="2018-06-25"></label>
+  <label><input id="noLife" type="checkbox"> no lifespan set</label>
+  <span class="lbl">Today is fixed to 2026-10-28 for the demo</span>
+</div>
+</div>
+
+<div class="zone ro">
+<h1>2 - Views: read only, just look</h1>
+<p>These are the three options for how the saved value is shown in view mode. Nothing here is clickable.</p>
+
+<h2>View A - Life stage in words + end-of-life date (my pick)</h2><div class="card" id="A"></div>
+<h2>View B - One block per year</h2><div class="card" id="B"></div>
+<h2>View C - Ring with years left in the middle</h2><div class="card" id="C"></div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id), TODAY=new Date('2026-10-28');
+const yrs=n=>n===1?'1 year':(+n.toFixed(1))+' years';
+const mon=d=>d.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+function stage(p){return p>1?['Past expected life','var(--bad)']:p>=.85?['Near end of life','var(--warn)']:p>=.5?['Mid-life','var(--ac)']:['Early life','var(--ok)']}
+let t;
+function flash(){const s=$('saved');s.classList.add('show');clearTimeout(t);t=setTimeout(()=>s.classList.remove('show'),1200)}
+function sync(from){
+  let v=Math.min(100,Math.max(1,Math.round(+from.value)||1));
+  $('rng').value=v;$('life').value=v;flash();render();
+}
+function render(){
+  const L=$('noLife').checked?null:+$('life').value;
+  const inst=$('inst').value?new Date($('inst').value):null;
+  const age=inst?(TODAY-inst)/31557600000:null;           // 365.25 days, same as depreciation formula
+  const end=(inst&&L)?new Date(inst.getTime()+L*31557600000):null;
+  $('sentence').textContent=L?(end?`Expected to last until ${mon(end)}.`:`Expected to last ${yrs(L)} from installation.`):'No lifespan set.';
+  if(!L){for(const k of 'ABC')$(k).innerHTML='<div class="lbl">Expected Lifespan</div><div class="big">-</div><div class="note">No expected lifespan set</div>';return}
+  if(age==null){for(const k of 'ABC')$(k).innerHTML=`<div class="lbl">Expected Lifespan</div><div class="big">${yrs(L)}</div><div class="note">Add an Installation Date to see life stage</div>`;return}
+  const p=age/L,[st,col]=stage(p),left=L-age;
+  const stat=left>=0?`${yrs(left)} left`:`${yrs(-left)} past`;
+  // A
+  $('A').innerHTML=`<div class="lbl">Expected Lifespan: <b style="color:var(--tx)">${yrs(L)}</b></div>
+   <div class="row" style="margin-top:8px"><span class="chip" style="color:${col}">${st}</span>
+   <span class="big">${stat}</span></div>
+   <div class="note">Installed ${mon(inst)} &middot; Expected end of life ${mon(end)} &middot; ${yrs(age)} in service</div>`;
+  // B  (cap blocks at 50 for readability; each block = L/blocks years)
+  const n=Math.min(L,50),per=L/n;let h='';
+  for(let i=0;i<n;i++){const f=(age-i*per)/per;h+=`<div class="b ${f>=1?(p>1?'over':'on'):f>=.5?'half':''}" title="Year ${Math.round(i*per)+1}"></div>`}
+  $('B').innerHTML=`<div class="lbl">Expected Lifespan: <b style="color:var(--tx)">${yrs(L)}</b> &middot; each block = ${per===1?'1 year':yrs(per)}</div>
+   <div class="blocks" role="img" aria-label="${yrs(age)} in service of ${yrs(L)}">${h}</div>
+   <div class="note">${yrs(age)} in service &middot; ${stat}</div>`;
+  // C
+  const deg=Math.min(1,p)*360;
+  $('C').innerHTML=`<div class="lbl">Expected Lifespan: <b style="color:var(--tx)">${yrs(L)}</b></div><div class="row" style="margin-top:8px">
+   <div class="ring" style="background:conic-gradient(${p>1?'var(--bad)':'var(--ac)'} ${deg}deg,var(--off) 0)"><div><span><b>${left>=0?(+left.toFixed(1)):'+'+(+(-left).toFixed(1))}</b><br>${left>=0?'yrs left':'yrs over'}</span></div></div>
+   <div><span class="chip" style="color:${col}">${st}</span><div class="note">${yrs(age)} in service<br>Expected end of life ${mon(end)}</div></div></div>`;
+}
+$('rng').oninput=e=>sync(e.target);$('life').oninput=e=>sync(e.target);
+$('inst').oninput=render;$('noLife').oninput=render;render();
+</script>
